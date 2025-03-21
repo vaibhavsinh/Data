@@ -1,0 +1,53 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=your-server;Database=your-database;User=your-username;Password=your-password;"
+  }
+}
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=PRO500AM4-M5;Database=vaibhav;Integrated Security=True;TrustServerCertificate=True;"
+  }
+
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;"
+  }
+}
+using System.Data;
+using MySql.Data.MySqlClient;
+using Microsoft.Extensions.Configuration;
+
+namespace DapperCRUD.Data
+{
+    public class DapperContext
+    {
+        private readonly IConfiguration _configuration;
+        private readonly string _connectionString;
+
+        public DapperContext(IConfiguration configuration)
+        {
+            _configuration = configuration;
+            _connectionString = _configuration.GetConnectionString("DefaultConnection");
+        }
+
+        public IDbConnection CreateConnection() => new MySqlConnection(_connectionString);
+    }
+}
+using (var connection = _context.CreateConnection())
+{
+    var procedureName = "sp_AddCustomer"; // Store procedure name as a string
+
+    var parameters = new DynamicParameters();
+    parameters.Add("@Name", customer.Name);
+    parameters.Add("@Email", customer.Email);
+    parameters.Add("@Phone", customer.Phone);
+
+    return await connection.ExecuteScalarAsync<int>(
+        procedureName,
+        parameters,
+        commandType: CommandType.StoredProcedure);
+}
+string strMessage = ModelState.Values
+    .SelectMany(v => v.Errors)
+    .Select(e => e.ErrorMessage)
+    .FirstOrDefault() ?? "Invalid data.";
