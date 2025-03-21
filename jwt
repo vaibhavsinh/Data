@@ -1,0 +1,98 @@
+// Add JWT Authentication
+var key = Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]);
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+            ValidAudience = builder.Configuration["JwtSettings:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+    });
+
+builder.Services.AddSingleton<JwtService>();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+using Microsoft.AspNetCore.Mvc;
+
+[Route("api/auth")]
+[ApiController]
+public class AuthController : ControllerBase
+{
+    private readonly JwtService _jwtService;
+
+    public AuthController(JwtService jwtService)
+    {
+        _jwtService = jwtService;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginModel model)
+    {
+        // Simulated user authentication (Replace with DB validation)
+        if (model.Email == "admin@example.com" && model.Password == "Admin@123")
+        {
+            string token = _jwtService.GenerateToken("1", model.Email);
+            return Ok(new { Token = token });
+        }
+        return Unauthorized(new { Message = "Invalid Credentials" });
+    }
+}
+
+public class LoginModel
+{
+    public string Email { get; set; }
+    public string Password { get; set; }
+}
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+public class JwtService
+{
+    private readonly IConfiguration _config;
+
+    public JwtService(IConfiguration config)
+    {
+        _config = config;
+    }
+
+    public string GenerateToken(string userId, string userEmail)
+    {
+        var key = Encoding.UTF8.GetBytes(_config["JwtSettings:SecretKey"]);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, userId),
+            new Claim(JwtRegisteredClaimNames.Email, userEmail),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _config["JwtSettings:Issuer"],
+            audience: _config["JwtSettings:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_config["JwtSettings:ExpirationInMinutes"])),
+            signingCredentials: new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}
+
+"JwtSettings": {
+  "SecretKey": "Your_Secret_Key_Should_Be_At_Least_32_Characters",
+  "Issuer": "YourAppIssuer",
+  "Audience": "YourAppAudience",
+  "ExpirationInMinutes": 60
+}
